@@ -14,10 +14,13 @@ async def lifespan(app: FastAPI):
 
     logger.info("Starting %s", settings.app_name)
 
+    # Shared singletons
     app.state.settings = settings
-    app.state.ml_model = None
+    app.state.model = None
+    app.state.embedder = None
+    app.state.db_engine = None
+    app.state.http_client = None
     app.state.llm_client = None
-    app.state.vector_store = None
 
     yield
 
