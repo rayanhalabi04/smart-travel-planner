@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
+    # ✅ FIX: allow OpenAI key if present (optional)
+    openai_api_key: str | None = None
+
     # LLM models
     cheap_model: str = "gpt-4o-mini"
     strong_model: str = "gpt-4o"
