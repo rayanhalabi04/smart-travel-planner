@@ -33,3 +33,10 @@ Typical env vars:
 - `LANGSMITH_PROJECT=...` (optional)
 
 Add a multi-tool trace screenshot after running an end-to-end demo.
+
+## Two-Model Routing
+
+- The agent now routes mechanical work (preference extraction + RAG query rewrite) to a cheaper Gemini model.
+- Final recommendation synthesis is routed to a stronger Gemini model.
+- Token usage and estimated cost are logged per LLM step and persisted on each `agent_runs` row.
+- The final cost table/screenshot for one full query will be completed later.

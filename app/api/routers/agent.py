@@ -52,6 +52,8 @@ async def run_agent(
             agent_run_id=agent_run.id,
         )
         agent_run.final_answer = result.final_answer
+        agent_run.token_usage = result.token_usage
+        agent_run.cost_usd = result.cost_usd
         agent_run.status = "success"
     except Exception as exc:
         agent_run.final_answer = (

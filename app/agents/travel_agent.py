@@ -8,6 +8,8 @@ from langgraph.graph import END, StateGraph
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
+from app.llm.costs import summarize_step_costs
+from app.llm.gemini_client import GeminiLLMClient
 from app.services.tool_runner import ToolRuntimeContext, record_tool_failure, run_tool
 
 
@@ -40,14 +42,49 @@ KNOWN_CITIES = [
 ]
 
 
+STYLE_TO_PREFERENCE_KEY = {
+    "budget": "budget",
+    "luxury": "luxury",
+    "family": "family",
+    "adventure": "hiking",
+    "beach": "beach",
+    "cultural": "culture",
+}
+
+INTEREST_ALIASES = {
+    "budget": "budget",
+    "affordable": "budget",
+    "luxury": "luxury",
+    "family": "family",
+    "kids": "family",
+    "children": "family",
+    "hiking": "hiking",
+    "trail": "hiking",
+    "mountain": "hiking",
+    "beach": "beach",
+    "water sports": "water_sports",
+    "watersports": "water_sports",
+    "surf": "water_sports",
+    "diving": "water_sports",
+    "snorkeling": "water_sports",
+    "culture": "culture",
+    "historical": "culture",
+    "history": "culture",
+    "museum": "culture",
+    "art": "culture",
+}
+
+
 class TravelAgentState(TypedDict, total=False):
     user_query: str
     rag_top_k: int
     runtime: ToolRuntimeContext
     agent_run_id: int
+    llm_client: GeminiLLMClient
     destination_city: str | None
     extracted_preferences: dict[str, Any]
     numeric_features: dict[str, float]
+    llm_usage_steps: list[dict[str, Any]]
     tool_results: list[dict[str, Any]]
     destination_result: dict[str, Any] | None
     classifier_result: dict[str, Any] | None
@@ -59,6 +96,8 @@ class TravelAgentState(TypedDict, total=False):
 class TravelAgentResult:
     final_answer: str
     tool_results: list[dict[str, Any]]
+    token_usage: dict[str, Any] | None = None
+    cost_usd: float | None = None
 
 
 def _extract_city_from_text(text: str) -> str | None:
@@ -125,15 +164,77 @@ def _extract_numeric_features(text: str) -> dict[str, float]:
 
     for field, field_aliases in aliases.items():
         for alias in field_aliases:
-            pattern = re.compile(
-                rf"{re.escape(alias)}\s*[:=]?\s*(-?\d+(?:\.\d+)?)"
-            )
+            pattern = re.compile(rf"{re.escape(alias)}\s*[:=]?\s*(-?\d+(?:\.\d+)?)")
             match = pattern.search(lowered)
             if match:
                 extracted[field] = float(match.group(1))
                 break
 
     return extracted
+
+
+def _deterministic_extraction(user_query: str) -> dict[str, Any]:
+    preferences = _extract_preference_tokens(user_query)
+    travel_style_hint = _infer_travel_style(preferences)
+    destination_city = _extract_city_from_text(user_query)
+    extracted_numeric = _extract_numeric_features(user_query)
+
+    complete_numeric_features = {
+        field: extracted_numeric[field]
+        for field in CLASSIFIER_FIELDS
+        if field in extracted_numeric
+    }
+
+    interests = [
+        name.replace("_", " ")
+        for name, is_active in preferences.items()
+        if is_active
+    ]
+
+    return {
+        "destination_city": destination_city,
+        "travel_style": travel_style_hint,
+        "interests": interests,
+        "rag_query": travel_style_hint or user_query,
+        "numeric_features": complete_numeric_features,
+        "notes": None,
+    }
+
+
+def _normalized_preference_key(label: str) -> str | None:
+    key = label.strip().lower().replace("_", " ")
+    return INTEREST_ALIASES.get(key)
+
+
+def _preferences_from_extraction(
+    *,
+    user_query: str,
+    extraction: dict[str, Any],
+) -> tuple[dict[str, bool], str | None, list[str]]:
+    preferences = _extract_preference_tokens(user_query)
+
+    interests = extraction.get("interests")
+    if isinstance(interests, list):
+        for interest in interests:
+            if not isinstance(interest, str):
+                continue
+            pref_key = _normalized_preference_key(interest)
+            if pref_key and pref_key in preferences:
+                preferences[pref_key] = True
+
+    travel_style_hint = extraction.get("travel_style")
+    if isinstance(travel_style_hint, str) and travel_style_hint.strip():
+        style_key = STYLE_TO_PREFERENCE_KEY.get(travel_style_hint.strip().lower())
+        if style_key and style_key in preferences:
+            preferences[style_key] = True
+    else:
+        travel_style_hint = _infer_travel_style(preferences)
+
+    normalized_interests = [
+        key.replace("_", " ") for key, value in preferences.items() if value
+    ]
+
+    return preferences, travel_style_hint, normalized_interests
 
 
 def _tool_results_with_new(
@@ -145,35 +246,64 @@ def _tool_results_with_new(
     return current
 
 
+def _llm_usage_with_new(
+    state: TravelAgentState,
+    usage: dict[str, Any],
+) -> list[dict[str, Any]]:
+    current = list(state.get("llm_usage_steps", []))
+    current.append(usage)
+    return current
+
+
 async def _extract_preferences_node(state: TravelAgentState) -> TravelAgentState:
     user_query = state["user_query"]
-    preferences = _extract_preference_tokens(user_query)
-    travel_style_hint = _infer_travel_style(preferences)
-    city = _extract_city_from_text(user_query)
-    extracted_numeric = _extract_numeric_features(user_query)
+    fallback_extraction = _deterministic_extraction(user_query)
 
+    extraction, extraction_usage = await state["llm_client"].cheap_extract_and_rewrite(
+        user_query=user_query,
+        fallback=fallback_extraction,
+    )
+
+    preferences, travel_style_hint, normalized_interests = _preferences_from_extraction(
+        user_query=user_query,
+        extraction=extraction,
+    )
+
+    destination_city = extraction.get("destination_city") or fallback_extraction.get(
+        "destination_city"
+    )
+
+    numeric_features_raw = extraction.get("numeric_features", {})
     complete_numeric_features = {
-        field: extracted_numeric[field]
+        field: float(numeric_features_raw[field])
         for field in CLASSIFIER_FIELDS
-        if field in extracted_numeric
+        if field in numeric_features_raw
     }
 
+    rag_query = extraction.get("rag_query")
+    if not isinstance(rag_query, str) or not rag_query.strip():
+        rag_query = fallback_extraction["rag_query"]
+
     return {
-        "destination_city": city,
+        "destination_city": destination_city,
         "extracted_preferences": {
             "preferences": preferences,
             "travel_style_hint": travel_style_hint,
+            "interests": normalized_interests,
+            "rag_query": rag_query,
+            "notes": extraction.get("notes"),
         },
         "numeric_features": complete_numeric_features,
+        "llm_usage_steps": _llm_usage_with_new(state, extraction_usage),
     }
 
 
 async def _destination_search_node(state: TravelAgentState) -> TravelAgentState:
     preferences = state.get("extracted_preferences", {})
     style_hint = preferences.get("travel_style_hint")
-    query = state["user_query"]
+    rag_query = preferences.get("rag_query") or state["user_query"]
 
-    raw_args: dict[str, Any] = {"query": query, "top_k": state.get("rag_top_k", 5)}
+    raw_args: dict[str, Any] = {"query": rag_query, "top_k": state.get("rag_top_k", 5)}
     if style_hint:
         raw_args["travel_style"] = style_hint
 
@@ -268,7 +398,7 @@ def _weather_context_line(weather_output: dict[str, Any] | None) -> tuple[str, s
     return weather_line, tension
 
 
-async def _synthesis_node(state: TravelAgentState) -> TravelAgentState:
+def _deterministic_synthesis(state: TravelAgentState) -> str:
     destination_result = state.get("destination_result")
     classifier_result = state.get("classifier_result")
     weather_result = state.get("weather_result")
@@ -305,9 +435,7 @@ async def _synthesis_node(state: TravelAgentState) -> TravelAgentState:
         )
 
     if classifier_result and classifier_result.get("status") == "success":
-        predicted_style = (
-            classifier_result.get("tool_output", {}).get("predicted_style")
-        )
+        predicted_style = classifier_result.get("tool_output", {}).get("predicted_style")
         lines.append(f"Model-based style classification: {predicted_style}.")
     else:
         classifier_error = classifier_result.get("error_message") if classifier_result else None
@@ -340,7 +468,26 @@ async def _synthesis_node(state: TravelAgentState) -> TravelAgentState:
         "Recommendation synthesis: pick one of the top destination matches that aligns with your interests and current conditions, and keep a weather-aware backup activity."
     )
 
-    return {"final_answer": " ".join(lines)}
+    return " ".join(lines)
+
+
+async def _synthesis_node(state: TravelAgentState) -> TravelAgentState:
+    fallback_answer = _deterministic_synthesis(state)
+
+    final_answer, synthesis_usage = await state["llm_client"].strong_synthesize(
+        user_query=state["user_query"],
+        extracted_preferences=state.get("extracted_preferences", {}),
+        destination_result=state.get("destination_result"),
+        classifier_result=state.get("classifier_result"),
+        weather_result=state.get("weather_result"),
+        tool_results=state.get("tool_results", []),
+        fallback_answer=fallback_answer,
+    )
+
+    return {
+        "final_answer": final_answer,
+        "llm_usage_steps": _llm_usage_with_new(state, synthesis_usage),
+    }
 
 
 @lru_cache(maxsize=1)
@@ -371,8 +518,8 @@ def _build_tracing_config(agent_run_id: int | None) -> dict[str, Any] | None:
         return None
 
     return {
-        "run_name": "travel_agent_three_tools",
-        "tags": ["smart-travel-planner", "assignment-three-tools"],
+        "run_name": "travel_agent_two_models",
+        "tags": ["smart-travel-planner", "assignment-two-models"],
         "metadata": {"agent_run_id": agent_run_id},
     }
 
@@ -400,6 +547,8 @@ async def run_travel_agent(
         "rag_top_k": max(1, min(10, settings.rag_top_k)),
         "runtime": runtime,
         "agent_run_id": agent_run_id,
+        "llm_client": GeminiLLMClient(settings=settings),
+        "llm_usage_steps": [],
         "tool_results": [],
     }
 
@@ -410,10 +559,27 @@ async def run_travel_agent(
     else:
         final_state = await graph.ainvoke(initial_state)
 
+    step_costs = final_state.get("llm_usage_steps", [])
+    summary = summarize_step_costs(step_costs)
+
+    step_map = {item.get("step_name"): item for item in step_costs}
+    token_usage = {
+        "cheap_extraction": step_map.get("cheap_extraction"),
+        "strong_synthesis": step_map.get("strong_synthesis"),
+        "steps": step_costs,
+        "total_input_tokens": summary["total_input_tokens"],
+        "total_output_tokens": summary["total_output_tokens"],
+        "total_tokens": summary["total_tokens"],
+        "total_estimated_cost_usd": summary["estimated_cost_usd"],
+        "estimated": summary["estimated"],
+    }
+
     return TravelAgentResult(
         final_answer=final_state.get(
             "final_answer",
             "I could not complete the travel analysis. Please try again with more details.",
         ),
         tool_results=final_state.get("tool_results", []),
+        token_usage=token_usage,
+        cost_usd=summary["estimated_cost_usd"],
     )

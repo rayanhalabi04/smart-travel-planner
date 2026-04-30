@@ -30,11 +30,14 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
-    # LLM / OpenAI
-    # Optional for now, so the backend can run even if you do not use OpenAI yet
+    # LLM
+    # Optional keys so the backend keeps working when providers are not configured
     openai_api_key: str | None = None
-    cheap_model: str = "gpt-4o-mini"
-    strong_model: str = "gpt-4o"
+    gemini_api_key: str | None = None
+    cheap_model: str = "gemini-2.5-flash-lite"
+    strong_model: str = "gemini-2.5-flash"
+    cheap_model_name: str | None = None
+    strong_model_name: str | None = None
 
     # Frontend / CORS
     cors_origins: list[str] = [
@@ -73,6 +76,14 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = "INFO"
+
+    @property
+    def resolved_cheap_model(self) -> str:
+        return self.cheap_model_name or self.cheap_model
+
+    @property
+    def resolved_strong_model(self) -> str:
+        return self.strong_model_name or self.strong_model
 
 
 @lru_cache(maxsize=1)
