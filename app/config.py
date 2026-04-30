@@ -30,20 +30,39 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
-    # ✅ FIX: allow OpenAI key if present (optional)
+    # LLM / OpenAI
+    # Optional for now, so the backend can run even if you do not use OpenAI yet
     openai_api_key: str | None = None
-
-    # LLM models
     cheap_model: str = "gpt-4o-mini"
     strong_model: str = "gpt-4o"
 
-    # Paths
+    # Frontend / CORS
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
+    # Project paths
     project_root: Path = Path(__file__).resolve().parent.parent
-    model_path: Path = project_root / "app" / "ml" / "artifacts" / "best_travel_style_model.pkl"
+
+    # ML paths
+    # Main name used by lifespan.py
+    ml_model_path: Path = (
+        project_root / "app" / "ml" / "artifacts" / "travel_style_classifier.pkl"
+    )
+
+    feature_columns_path: Path = (
+        project_root / "app" / "ml" / "artifacts" / "feature_columns.pkl"
+    )
+
+    # Backward-compatible name in case some older ML code uses settings.model_path
+    model_path: Path = ml_model_path
 
     # RAG
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     rag_top_k: int = 5
+    chroma_path: Path = project_root / "chroma_db"
+    chroma_collection_name: str = "destinations"
 
     # Weather
     weather_base_url: str = "https://api.open-meteo.com/v1/forecast"

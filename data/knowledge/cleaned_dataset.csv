@@ -1,0 +1,201 @@
+destination_name,country,travel_style
+Queenstown,New Zealand,Adventure
+Interlaken,Switzerland,Adventure
+Chamonix,France,Adventure
+Banff,Canada,Adventure
+Patagonia,Argentina,Adventure
+Torres del Paine,Chile,Adventure
+Moab,United States,Adventure
+Zermatt,Switzerland,Adventure
+Pokhara,Nepal,Adventure
+Cusco,Peru,Adventure
+Reykjavik,Iceland,Adventure
+Cape Town,South Africa,Adventure
+Kilimanjaro Region,Tanzania,Adventure
+Bled,Slovenia,Adventure
+Lofoten Islands,Norway,Adventure
+Whistler,Canada,Adventure
+Costa Rica,Costa Rica,Adventure
+Mendoza,Argentina,Adventure
+Tromso,Norway,Adventure
+Cappadocia,Turkey,Adventure
+Maldives,Maldives,Relaxation
+Seychelles,Seychelles,Relaxation
+Bora Bora,French Polynesia,Relaxation
+Santorini,Greece,Relaxation
+Zanzibar,Tanzania,Relaxation
+Phuket,Thailand,Relaxation
+Koh Samui,Thailand,Relaxation
+Bali,Indonesia,Relaxation
+Maui,United States,Relaxation
+Tulum,Mexico,Relaxation
+Amalfi Coast,Italy,Relaxation
+Ibiza,Spain,Relaxation
+Goa,India,Relaxation
+Langkawi,Malaysia,Relaxation
+Mauritius,Mauritius,Relaxation
+Fiji,Fiji,Relaxation
+Crete,Greece,Relaxation
+Algarve,Portugal,Relaxation
+Koh Lanta,Thailand,Relaxation
+Nusa Dua,Indonesia,Relaxation
+Rome,Italy,Culture
+Athens,Greece,Culture
+Kyoto,Japan,Culture
+Istanbul,Turkey,Culture
+Cairo,Egypt,Culture
+Marrakech,Morocco,Culture
+Paris,France,Culture
+Florence,Italy,Culture
+Barcelona,Spain,Culture
+Prague,Czech Republic,Culture
+Vienna,Austria,Culture
+Jerusalem,Israel,Culture
+Petra,Jordan,Culture
+Fez,Morocco,Culture
+Granada,Spain,Culture
+Mexico City,Mexico,Culture
+Lima,Peru,Culture
+Hanoi,Vietnam,Culture
+Luang Prabang,Laos,Culture
+Varanasi,India,Culture
+Chiang Mai,Thailand,Budget
+Da Nang,Vietnam,Budget
+Hoi An,Vietnam,Budget
+Kathmandu,Nepal,Budget
+Tbilisi,Georgia,Budget
+Yerevan,Armenia,Budget
+Sofia,Bulgaria,Budget
+Bucharest,Romania,Budget
+Krakow,Poland,Budget
+Belgrade,Serbia,Budget
+La Paz,Bolivia,Budget
+Medellin,Colombia,Budget
+Quito,Ecuador,Budget
+Antigua Guatemala,Guatemala,Budget
+Oaxaca,Mexico,Budget
+Siem Reap,Cambodia,Budget
+Ninh Binh,Vietnam,Budget
+Sarajevo,Bosnia and Herzegovina,Budget
+Skopje,North Macedonia,Budget
+Cebu,Philippines,Budget
+Dubai,United Arab Emirates,Luxury
+Monaco,Monaco,Luxury
+St. Moritz,Switzerland,Luxury
+Aspen,United States,Luxury
+French Riviera,France,Luxury
+St. Barts,Saint Barthelemy,Luxury
+Doha,Qatar,Luxury
+Abu Dhabi,United Arab Emirates,Luxury
+Singapore,Singapore,Luxury
+Hong Kong,China,Luxury
+Tokyo,Japan,Luxury
+Zurich,Switzerland,Luxury
+Geneva,Switzerland,Luxury
+London,United Kingdom,Luxury
+New York City,United States,Luxury
+Los Angeles,United States,Luxury
+Mykonos,Greece,Luxury
+Capri,Italy,Luxury
+Cannes,France,Luxury
+Muscat,Oman,Luxury
+Orlando,United States,Family
+San Diego,United States,Family
+Copenhagen,Denmark,Family
+Gold Coast,Australia,Family
+Anaheim,United States,Family
+Singapore Sentosa,Singapore,Family
+Tokyo Disney Resort,Japan,Family
+Legoland Billund,Denmark,Family
+Paris Disneyland,France,Family
+Vancouver,Canada,Family
+Edinburgh,United Kingdom,Family
+Dublin,Ireland,Family
+Amsterdam,Netherlands,Family
+Munich,Germany,Family
+Vienna Family,Austria,Family
+Osaka,Japan,Family
+Seoul,South Korea,Family
+Dubai Parks,United Arab Emirates,Family
+Honolulu,United States,Family
+Quebec City,Canada,Family
+Perpignan,France,Culture
+Stratford (Victoria),Australia,Family
+Buffalo,United States,Culture
+Peshawar,Pakistan,Culture
+Montevideo,Uruguay,Culture
+Sarandë,Albania,Beach
+Cefalù,Italy,Beach
+Patmos,Greece,Culture
+Sopot,Poland,Beach
+Faro,Portugal,Beach
+Hua Hin,Thailand,Beach
+Fuerteventura,Spain,Beach
+Salerno,Italy,Culture
+Casablanca,Morocco,Culture
+Mostar,Bosnia and Herzegovina,Culture
+Kotor,Montenegro,Culture
+Novi Sad,Serbia,Culture
+Riga,Latvia,Culture
+Tallinn,Estonia,Culture
+Vilnius,Lithuania,Culture
+Gdańsk,Poland,Culture
+Kraków,Poland,Culture
+Wrocław,Poland,Culture
+Bratislava,Slovakia,Culture
+Ljubljana,Slovenia,Culture
+Zagreb,Croatia,Culture
+Split,Croatia,Beach
+Hvar,Croatia,Beach
+Zadar,Croatia,Culture
+Tirana,Albania,Culture
+Ohrid,North Macedonia,Culture
+Lviv,Ukraine,Culture
+Baku,Azerbaijan,Culture
+Manama,Bahrain,Luxury
+Jeddah,Saudi Arabia,Culture
+AlUla,Saudi Arabia,Luxury
+Wadi Rum,Jordan,Adventure
+Aqaba,Jordan,Beach
+Luxor,Egypt,Culture
+Aswan,Egypt,Culture
+Sharm el-Sheikh,Egypt,Beach
+Dahab,Egypt,Adventure
+Diani Beach,Kenya,Beach
+Mombasa,Kenya,Beach
+Kigali,Rwanda,Culture
+Addis Ababa,Ethiopia,Culture
+Lalibela,Ethiopia,Culture
+Victoria Falls,Zimbabwe,Adventure
+Marrakesh Medina,Morocco,Culture
+Chefchaouen,Morocco,Culture
+Essaouira,Morocco,Beach
+Tunis,Tunisia,Culture
+Sidi Bou Said,Tunisia,Culture
+Djerba,Tunisia,Beach
+Cusco Sacred Valley,Peru,Adventure
+Arequipa,Peru,Culture
+Cartagena,Colombia,Culture
+Medellín,Colombia,Culture
+Valparaíso,Chile,Culture
+San Pedro de Atacama,Chile,Adventure
+Ushuaia,Argentina,Adventure
+Bariloche,Argentina,Adventure
+Punta del Este,Uruguay,Beach
+Florianópolis,Brazil,Beach
+Salvador,Brazil,Culture
+Paraty,Brazil,Beach
+Ilhabela,Brazil,Adventure
+Bocas del Toro,Panama,Beach
+San Cristóbal de las Casas,Mexico,Culture
+Bacalar,Mexico,Beach
+Holbox,Mexico,Beach
+San Juan,Puerto Rico,Culture
+Nassau,Bahamas,Beach
+Vang Vieng,Laos,Adventure
+Nha Trang,Vietnam,Beach
+Koh Tao,Thailand,Adventure
+El Nido,Philippines,Beach
+Coron,Philippines,Adventure
+Siargao,Philippines,Adventure
+Gili Islands,Indonesia,Beach
