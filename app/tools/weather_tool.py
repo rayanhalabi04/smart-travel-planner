@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from app.schemas.weather import WeatherResponse
@@ -14,10 +16,15 @@ class WeatherToolOutput(BaseModel):
     result: WeatherResponse
 
 
-async def weather_tool(payload: WeatherToolInput) -> WeatherToolOutput:
-    weather = await get_weather_for_city(payload.city)
+async def weather_tool(
+    payload: WeatherToolInput,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    weather = await get_weather_for_city(payload.city.strip())
 
-    return WeatherToolOutput(
+    output = WeatherToolOutput(
         city=payload.city,
         result=weather,
     )
+
+    return output.model_dump()

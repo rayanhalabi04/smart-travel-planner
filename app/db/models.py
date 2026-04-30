@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -108,3 +109,21 @@ class Document(Base):
         server_default=func.now(),
         nullable=False,
     )
+
+
+class DestinationChunk(Base):
+    __tablename__ = "destination_chunks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+
+    destination_name: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    country: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    source_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    travel_style: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(384), nullable=False)

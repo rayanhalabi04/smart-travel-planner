@@ -1,44 +1,46 @@
 from pathlib import Path
 from typing import Any
 
-from app.rag.chunker import build_destination_documents
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.rag.chunker import build_destination_chunks
 from app.rag.embedder import embed_texts
 from app.rag.loader import load_destination_rows
-from app.rag.store import add_documents_to_collection, load_collection
+from app.rag.store import count_destination_chunks, replace_destination_chunks
 
 
-def ingest_destinations(
+async def ingest_destinations(
     csv_path: str | Path,
-    chroma_path: str | Path,
-    collection_name: str,
+    session: AsyncSession,
     embedder: Any,
 ) -> dict[str, Any]:
     rows = load_destination_rows(csv_path)
 
-    documents = build_destination_documents(rows)
+    chunks = build_destination_chunks(
+        rows=rows,
+        chunk_size=800,
+        overlap=150,
+    )
 
-    texts = [document["text"] for document in documents]
+    texts = [chunk["text"] for chunk in chunks]
 
     embeddings = embed_texts(
         texts=texts,
         embedder=embedder,
     )
 
-    collection = load_collection(
-        chroma_dir=chroma_path,
-        collection_name=collection_name,
-    )
-
-    add_documents_to_collection(
-        collection=collection,
-        documents=documents,
+    chunks_ingested = await replace_destination_chunks(
+        session=session,
+        chunks=chunks,
         embeddings=embeddings,
     )
+
+    total_chunks = await count_destination_chunks(session)
 
     return {
         "status": "success",
         "rows_loaded": len(rows),
-        "documents_ingested": len(documents),
-        "collection_name": collection_name,
-        "collection_count": collection.count(),
+        "chunks_created": len(chunks),
+        "chunks_ingested": chunks_ingested,
+        "table_count": total_chunks,
     }

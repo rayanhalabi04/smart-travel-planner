@@ -1,36 +1,23 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.travel_agent import run_travel_agent
+from app.config import Settings
 from app.db.models import AgentRun, ToolLog, User
-from app.dependencies import get_current_user, get_db_session
+from app.dependencies import (
+    get_app_settings,
+    get_current_user,
+    get_db_session,
+    get_embedder,
+    get_feature_columns,
+    get_ml_model,
+)
 from app.schemas.agent import AgentRunRequest, AgentRunResponse, ToolLogResponse
-from app.tools.weather_tool import WeatherToolInput, weather_tool
 
 router = APIRouter(prefix="/agent", tags=["agent"])
-
-
-def extract_city_from_text(text: str) -> str | None:
-    known_cities = [
-        "Rome",
-        "Paris",
-        "London",
-        "Barcelona",
-        "Dubai",
-        "Istanbul",
-        "Athens",
-        "Cairo",
-        "Beirut",
-        "Tripoli",
-    ]
-
-    text_lower = text.lower()
-
-    for city in known_cities:
-        if city.lower() in text_lower:
-            return city
-
-    return None
 
 
 @router.post("/run", response_model=AgentRunResponse)
@@ -38,79 +25,61 @@ async def run_agent(
     payload: AgentRunRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
+    model: Any = Depends(get_ml_model),
+    feature_columns: list[str] = Depends(get_feature_columns),
+    embedder: Any = Depends(get_embedder),
+    settings: Settings = Depends(get_app_settings),
 ) -> AgentRunResponse:
-    weather = None
-    city = extract_city_from_text(payload.input_text)
-
-    if city:
-        try:
-            weather_output = await weather_tool(WeatherToolInput(city=city))
-            weather = weather_output.result
-
-            temperature = weather.temperature_c
-
-            if temperature < 10:
-                weather_comment = "It might be quite cold, so pack warm clothes."
-            elif temperature < 20:
-                weather_comment = "The weather is mild, good for walking and sightseeing."
-            elif temperature < 30:
-                weather_comment = "The weather is pleasant and ideal for outdoor activities."
-            else:
-                weather_comment = "It might be quite hot, so plan indoor or beach activities."
-
-            output_text = (
-                f"{city} is a great travel destination. "
-                f"Right now, the temperature is {temperature}°C "
-                f"with wind speed around {weather.wind_speed_kmh} km/h. "
-                f"{weather_comment} "
-                f"This makes it a nice option for your trip depending on your preferences."
-            )
-
-        except Exception:
-            output_text = (
-                f"You asked about {city}, but I could not fetch live weather right now. "
-                f"I still saved your travel request."
-            )
-    else:
-        output_text = (
-            f"I saved your travel request: '{payload.input_text}'. "
-            f"Next, I need a destination city so I can check live weather."
-        )
-
     agent_run = AgentRun(
         user_id=current_user.id,
         user_query=payload.input_text,
-        final_answer=output_text,
+        final_answer=None,
+        status="running",
     )
 
     session.add(agent_run)
     await session.commit()
     await session.refresh(agent_run)
 
-    if city and weather:
-        tool_log = ToolLog(
-            run_id=agent_run.id,
-            tool_name="weather",
-            tool_input={"city": city},
-            tool_output={
-                "city": weather.city,
-                "latitude": weather.latitude,
-                "longitude": weather.longitude,
-                "temperature_c": weather.temperature_c,
-                "wind_speed_kmh": weather.wind_speed_kmh,
-                "weather_code": weather.weather_code,
-                "source": weather.source,
-            },
-            status="success",
+    try:
+        result = await run_travel_agent(
+            user_query=payload.input_text,
+            session=session,
+            model=model,
+            feature_columns=feature_columns,
+            embedder=embedder,
+            settings=settings,
+            agent_run_id=agent_run.id,
+        )
+        agent_run.final_answer = result.final_answer
+        agent_run.status = "success"
+    except Exception as exc:
+        agent_run.final_answer = (
+            "I couldn't complete your travel analysis due to an internal error. "
+            "Please try again with a more specific request."
+        )
+        agent_run.status = "failed"
+
+        # Persist an explicit failure log for troubleshooting when the graph fails.
+        session.add(
+            ToolLog(
+                run_id=agent_run.id,
+                tool_name="agent_runtime",
+                tool_input={"input_text": payload.input_text},
+                tool_output=None,
+                status="failed",
+                error_message=f"{exc.__class__.__name__}: {exc}",
+            )
         )
 
-        session.add(tool_log)
+        await session.commit()
+    else:
         await session.commit()
 
     return AgentRunResponse(
         id=agent_run.id,
         input_text=agent_run.user_query,
-        output_text=agent_run.final_answer,
+        output_text=agent_run.final_answer or "",
     )
 
 
@@ -131,7 +100,7 @@ async def get_agent_history(
         AgentRunResponse(
             id=run.id,
             input_text=run.user_query,
-            output_text=run.final_answer,
+            output_text=run.final_answer or "",
         )
         for run in runs
     ]

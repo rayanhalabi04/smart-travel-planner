@@ -61,8 +61,7 @@ class Settings(BaseSettings):
     # RAG
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     rag_top_k: int = 5
-    chroma_path: Path = project_root / "chroma_db"
-    chroma_collection_name: str = "destinations"
+    rag_documents_path: Path = project_root / "data" / "knowledge" / "rag_documents.csv"
 
     # Weather
     weather_base_url: str = "https://api.open-meteo.com/v1/forecast"
