@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import get_settings
+from app.db.session import create_engine, create_session_maker
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +17,19 @@ async def lifespan(app: FastAPI):
 
     # Shared singletons
     app.state.settings = settings
+
+    # Database singleton
+    app.state.db_engine = create_engine(settings)
+    app.state.session_maker = create_session_maker(app.state.db_engine)
+
+    # Other shared singletons - add later
     app.state.model = None
     app.state.embedder = None
-    app.state.db_engine = None
     app.state.http_client = None
     app.state.llm_client = None
 
-    yield
-
-    logger.info("Shutting down %s", settings.app_name)
+    try:
+        yield
+    finally:
+        await app.state.db_engine.dispose()
+        logger.info("Shutting down %s", settings.app_name)
