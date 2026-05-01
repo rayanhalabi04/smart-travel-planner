@@ -31,3 +31,5 @@ logs/
 # Docker
 .docker/
 data/knowledge/raw_pages/*.html
+data/knowledge/raw_pages/*.html
+data/knowledge/raw_pages/*.html

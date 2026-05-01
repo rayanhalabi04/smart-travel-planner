@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.rag.retriever import retrieve_destinations_by_style
 from app.schemas.tools import DestinationSearchToolInput
+from app.utils.travel_style import normalize_travel_style
 
 
 TOOL_NAME = "destination_search"
@@ -17,11 +18,17 @@ async def destination_search_tool(
     session: AsyncSession | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
-    search_query = payload.travel_style or payload.query
-    normalized_query = str(search_query).strip()
+    normalized_style = normalize_travel_style(payload.travel_style)
+    if normalized_style is None:
+        normalized_style = normalize_travel_style(payload.query)
 
-    if not normalized_query:
-        return {"query": payload.query, "destinations": [], "matches": []}
+    if normalized_style is None:
+        return {
+            "query": payload.query,
+            "resolved_search": None,
+            "destinations": [],
+            "matches": [],
+        }
 
     if embedder is None:
         raise ValueError("embedder is required for destination_search tool.")
@@ -30,7 +37,7 @@ async def destination_search_tool(
         raise ValueError("session is required for destination_search tool.")
 
     results = await retrieve_destinations_by_style(
-        travel_style=normalized_query.title(),
+        travel_style=normalized_style,
         embedder=embedder,
         session=session,
         top_k=payload.top_k,
@@ -77,7 +84,7 @@ async def destination_search_tool(
 
     return {
         "query": payload.query,
-        "resolved_search": normalized_query.title(),
+        "resolved_search": normalized_style,
         "destinations": destinations,
         "matches": matches,
     }

@@ -11,6 +11,7 @@ from app.config import Settings
 from app.llm.costs import summarize_step_costs
 from app.llm.gemini_client import GeminiLLMClient
 from app.services.tool_runner import ToolRuntimeContext, record_tool_failure, run_tool
+from app.utils.travel_style import normalize_travel_style
 
 
 CLASSIFIER_FIELDS = [
@@ -47,6 +48,8 @@ STYLE_TO_PREFERENCE_KEY = {
     "luxury": "luxury",
     "family": "family",
     "adventure": "hiking",
+    "relaxation": "beach",
+    "culture": "culture",
     "beach": "beach",
     "cultural": "culture",
 }
@@ -139,9 +142,9 @@ def _infer_travel_style(preferences: dict[str, bool]) -> str | None:
     if preferences["hiking"]:
         return "Adventure"
     if preferences["beach"] or preferences["water_sports"]:
-        return "Beach"
+        return "Relaxation"
     if preferences["culture"]:
-        return "Cultural"
+        return "Culture"
     return None
 
 
@@ -222,13 +225,14 @@ def _preferences_from_extraction(
             if pref_key and pref_key in preferences:
                 preferences[pref_key] = True
 
-    travel_style_hint = extraction.get("travel_style")
-    if isinstance(travel_style_hint, str) and travel_style_hint.strip():
-        style_key = STYLE_TO_PREFERENCE_KEY.get(travel_style_hint.strip().lower())
+    raw_travel_style = extraction.get("travel_style")
+    travel_style_hint = normalize_travel_style(raw_travel_style)
+    if travel_style_hint:
+        style_key = STYLE_TO_PREFERENCE_KEY.get(travel_style_hint.lower())
         if style_key and style_key in preferences:
             preferences[style_key] = True
     else:
-        travel_style_hint = _infer_travel_style(preferences)
+        travel_style_hint = normalize_travel_style(_infer_travel_style(preferences))
 
     normalized_interests = [
         key.replace("_", " ") for key, value in preferences.items() if value
@@ -300,12 +304,14 @@ async def _extract_preferences_node(state: TravelAgentState) -> TravelAgentState
 
 async def _destination_search_node(state: TravelAgentState) -> TravelAgentState:
     preferences = state.get("extracted_preferences", {})
-    style_hint = preferences.get("travel_style_hint")
+    style_hint = normalize_travel_style(preferences.get("travel_style_hint"))
     rag_query = preferences.get("rag_query") or state["user_query"]
 
-    raw_args: dict[str, Any] = {"query": rag_query, "top_k": state.get("rag_top_k", 5)}
-    if style_hint:
-        raw_args["travel_style"] = style_hint
+    raw_args: dict[str, Any] = {
+        "query": rag_query,
+        "top_k": state.get("rag_top_k", 5),
+        "travel_style": style_hint,
+    }
 
     tool_result = await run_tool(
         tool_name="destination_search",
